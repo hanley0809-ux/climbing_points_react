@@ -22,7 +22,6 @@ origins = [
 CORS(app, resources={r"/api/*": {"origins": origins}})
 
 # Initialize the database and create the table if it doesn't exist
-# This will run once when the application starts.
 backend_utils.init_db()
 
 
@@ -31,11 +30,12 @@ backend_utils.init_db()
 @app.route("/api/stats/<user_name>", methods=["GET"])
 def get_stats(user_name):
     """Returns key dashboard statistics for a given user."""
-    all_climbs_df = backend_utils.get_all_climbs() # No longer needs worksheet
+    all_climbs_df = backend_utils.get_all_climbs()
     if all_climbs_df.empty:
         return jsonify(backend_utils.get_dashboard_stats(pd.DataFrame()))
 
-    user_df = all_climbs_df[all_climbs_df["Name"] == user_name]
+    # MODIFIED: Changed "Name" to "name" to match the database column case
+    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
     stats = backend_utils.get_dashboard_stats(user_df)
     
     return jsonify(stats)
@@ -44,11 +44,12 @@ def get_stats(user_name):
 @app.route("/api/sessions/<user_name>", methods=["GET"])
 def get_sessions(user_name):
     """Returns all past climbing sessions for a user as a list of objects."""
-    all_climbs_df = backend_utils.get_all_climbs() # No longer needs worksheet
+    all_climbs_df = backend_utils.get_all_climbs()
     if all_climbs_df.empty:
         return jsonify([])
     
-    user_df = all_climbs_df[all_climbs_df["Name"] == user_name]
+    # MODIFIED: Changed "Name" to "name" to match the database column case
+    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
 
     if user_df.empty or 'Session' not in user_df.columns:
         return jsonify([])
