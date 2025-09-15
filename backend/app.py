@@ -4,37 +4,30 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
 
-# Import helper functions from the local utility module
 import backend_utils
 
 # --- App Initialization & Configuration ---
 
 app = Flask(__name__)
 
-# Define the list of websites that are allowed to make requests to this API
 origins = [
-    "http://localhost:3000",                 # For local development
-    "https://climbing-points.onrender.com",  # Your live frontend URL
-    "https://climbingpoints.com",            # Your future custom domain
-    "https://www.climbingpoints.com"         # Your custom domain with www
+    "http://localhost:3000",
+    "https://climbing-points.onrender.com",
+    "https://climbingpoints.com",
+    "https://www.climbingpoints.com"
 ]
-# Initialize CORS with the list of allowed origins
 CORS(app, resources={r"/api/*": {"origins": origins}})
 
-# Initialize the database and create the table if it doesn't exist
 backend_utils.init_db()
-
 
 # --- API Endpoints ---
 
 @app.route("/api/stats/<user_name>", methods=["GET"])
 def get_stats(user_name):
-    """Returns key dashboard statistics for a given user."""
     all_climbs_df = backend_utils.get_all_climbs()
     if all_climbs_df.empty:
         return jsonify(backend_utils.get_dashboard_stats(pd.DataFrame()))
 
-    # MODIFIED: Changed "Name" to "name" to match the database column case
     user_df = all_climbs_df[all_climbs_df["name"] == user_name]
     stats = backend_utils.get_dashboard_stats(user_df)
     
@@ -43,23 +36,22 @@ def get_stats(user_name):
 
 @app.route("/api/sessions/<user_name>", methods=["GET"])
 def get_sessions(user_name):
-    """Returns all past climbing sessions for a user as a list of objects."""
     all_climbs_df = backend_utils.get_all_climbs()
     if all_climbs_df.empty:
         return jsonify([])
     
-    # MODIFIED: Changed "Name" to "name" to match the database column case
     user_df = all_climbs_df[all_climbs_df["name"] == user_name]
 
-    if user_df.empty or 'Session' not in user_df.columns:
+    # MODIFIED: Use lowercase column names to match the DataFrame
+    if user_df.empty or 'session' not in user_df.columns:
         return jsonify([])
 
-    df_sorted_by_date = user_df.sort_values(by='Date', ascending=False)
-    grouped_by_session = df_sorted_by_date.groupby('Session')
+    df_sorted_by_date = user_df.sort_values(by='date', ascending=False)
+    grouped_by_session = df_sorted_by_date.groupby('session')
     
     sessions_list = []
     for session_name, session_df in grouped_by_session:
-        session_date_val = session_df['Date'].iloc[0]
+        session_date_val = session_df['date'].iloc[0]
         session_date = session_date_val.strftime('%Y-%m-%d') if pd.notna(session_date_val) else None
         
         session_df_cleaned = session_df.astype(object).where(pd.notnull(session_df), None)
@@ -76,7 +68,6 @@ def get_sessions(user_name):
 
 @app.route("/api/session", methods=["POST"])
 def add_session():
-    """Saves a new session's climbs to the database."""
     data = request.get_json()
     
     climbs_to_save = data.get("climbs")

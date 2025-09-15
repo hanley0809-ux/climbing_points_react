@@ -76,15 +76,12 @@ function App() {
         }
 
         setIsLoading(true);
-
-        // FIX: Generate a default session name, like the original app
+        
         const sessionName = discipline === "Bouldering" ? `${gym} - ${discipline}` : discipline;
 
-        // FIX: Create the payload with the correct keys the backend expects
         const payload = {
             userName: userName,
             sessionName: sessionName,
-            // FIX: Map the climb data to the format the Python backend's save_new_session function expects
             climbs: currentSessionClimbs.map(climb => ({
                 Discipline: climb.discipline,
                 Grade: climb.grade,
@@ -126,9 +123,8 @@ function App() {
     };
 
     const handleLogClimb = (grade) => {
-        // FIX: Store all necessary info with the climb, not just the grade
         const newClimb = {
-            id: Date.now(), // Unique ID for key and deletion
+            id: Date.now(),
             grade: grade,
             timestamp: new Date().toISOString(),
             discipline: discipline,
@@ -171,8 +167,9 @@ function App() {
                     <option value="Balance">Balance</option>
                 </select>
             )}
-            <button onClick={handleStartSession} disabled={isLoading || !userName.trim()} className="btn-primary">
-                {isLoading ? 'Loading...' : 'Start Session'}
+            {/* CHANGED: Updated button text and className */}
+            <button onClick={handleStartSession} disabled={isLoading || !userName.trim()} className="btn-primary btn-send-it">
+                {isLoading ? 'Loading...' : "Let's send it!"}
             </button>
         </div>
     );
@@ -193,7 +190,6 @@ function App() {
                     </div>
                     <div className="metric-card">
                         <h4>Top Sport Grade</h4>
-                        {/* FIX: The API sends hardest_sport, not top_sport_grade */}
                         <p>{stats.hardest_sport}</p>
                     </div>
                 </div>
@@ -237,12 +233,11 @@ function App() {
                     {pastSessions.length > 0 ? pastSessions.map((session, index) => (
                         <details key={index} className="session-details">
                             <summary>
-                                {/* FIX: API sends session_name and session_date */}
                                 {session.session_name} ({new Date(session.session_date).toLocaleDateString()})
                             </summary>
                             <ul>
                                 {session.climbs.map((climb, climbIndex) => (
-                                    <li key={climbIndex}>{climb.Grade} ({climb.Discipline})</li>
+                                    <li key={climbIndex}>{climb.grade} ({climb.discipline})</li>
                                 ))}
                             </ul>
                         </details>
@@ -261,7 +256,8 @@ function App() {
     return (
         <div className="container">
             <header className="app-header">
-                <h1>🧗‍♂️ Sunset Session</h1>
+                {/* CHANGED: Updated title */}
+                <h1>🧗‍♂️ Climbing Points</h1>
             </header>
             <main>
                 {sessionActive ? renderMainApp() : renderStartForm()}

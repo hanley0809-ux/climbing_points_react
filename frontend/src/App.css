@@ -238,3 +238,21 @@ select.input-field {
         flex-direction: column;
     }
 }
+
+/* Style for the new "Let's send it!" button */
+.btn-send-it {
+    background-color: #C77DFF; /* A fun, vibrant purple */
+    color: #ffffff;
+    border: none;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.btn-send-it:hover {
+    background-color: #B566F5; /* A slightly darker purple for hover */
+}
+
+.btn-send-it:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}

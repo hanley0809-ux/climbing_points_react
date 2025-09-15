@@ -5,12 +5,10 @@ from datetime import datetime
 import os
 from sqlalchemy import create_engine, text
 
-# Get the database connection URL from the environment variable set by Render
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
     raise Exception("DATABASE_URL environment variable is not set.")
 
-# Create a database engine. This manages connections for us.
 engine = create_engine(DB_URL)
 
 GRADE_ORDER = [
@@ -22,17 +20,17 @@ GRADE_ORDER = [
 
 def init_db():
     """Creates the database table if it doesn't already exist."""
-    # Use 'SERIAL PRIMARY KEY' for auto-incrementing in PostgreSQL
+    # Use lowercase for all column names to match database standards
     create_table_query = text('''
         CREATE TABLE IF NOT EXISTS climbs (
             id SERIAL PRIMARY KEY,
-            Discipline TEXT NOT NULL,
-            Grade TEXT NOT NULL,
-            Timestamp TEXT NOT NULL,
-            Session TEXT NOT NULL,
-            Date TEXT NOT NULL,
-            Gym TEXT,
-            Name TEXT NOT NULL
+            discipline TEXT NOT NULL,
+            grade TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            session TEXT NOT NULL,
+            date TEXT NOT NULL,
+            gym TEXT,
+            name TEXT NOT NULL
         )
     ''')
     try:
@@ -46,13 +44,12 @@ def init_db():
 
 def get_all_climbs():
     """Fetches all records from the PostgreSQL database."""
-    # pandas can read directly from a SQL connection
     df = pd.read_sql_query("SELECT * FROM climbs", engine)
     
-    if 'Timestamp' in df.columns and not df.empty:
-        df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
-    if 'Date' in df.columns and not df.empty:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    if 'timestamp' in df.columns and not df.empty:
+        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+    if 'date' in df.columns and not df.empty:
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
 def save_new_session(climbs_to_save, user_name, session_name=None):
@@ -60,10 +57,8 @@ def save_new_session(climbs_to_save, user_name, session_name=None):
     session_date = datetime.now().strftime("%Y-%m-%d")
     final_session_name = session_name if session_name else f"Session from {session_date}"
 
-    # Use 'text()' to ensure parameter binding works correctly with SQLAlchemy
-    # Use '%s' for parameter placeholders with psycopg2
     insert_query = text('''
-        INSERT INTO climbs (Discipline, Grade, Timestamp, Session, Date, Gym, Name)
+        INSERT INTO climbs (discipline, grade, timestamp, session, date, gym, name)
         VALUES (:discipline, :grade, :timestamp, :session, :date, :gym, :name)
     ''')
     
@@ -80,23 +75,28 @@ def save_new_session(climbs_to_save, user_name, session_name=None):
             })
         connection.commit()
 
-
-# The functions below do not need to change at all.
 def get_dashboard_stats(df):
-    if df.empty or 'Session' not in df.columns:
+    # MODIFIED: Use lowercase column names to match the DataFrame
+    if df.empty or 'session' not in df.columns:
         return {"total_sessions": 0, "hardest_boulder": "N/A", "hardest_sport": "N/A"}
-    total_sessions = df['Session'].nunique()
+
+    total_sessions = df['session'].nunique()
+
     def find_hardest(discipline):
-        discipline_df = df[df['Discipline'] == discipline]
+        # MODIFIED: Use lowercase column names
+        discipline_df = df[df['discipline'] == discipline]
         if discipline_df.empty: return "N/A"
-        discipline_df['Grade'] = pd.Categorical(discipline_df['Grade'], categories=GRADE_ORDER, ordered=True)
-        return discipline_df['Grade'].min()
+        discipline_df['grade'] = pd.Categorical(discipline_df['grade'], categories=GRADE_ORDER, ordered=True)
+        return discipline_df['grade'].min()
+
     hardest_boulder = find_hardest("Bouldering")
     hardest_sport = find_hardest("Sport Climbing")
+
     return {"total_sessions": total_sessions, "hardest_boulder": hardest_boulder, "hardest_sport": hardest_sport}
 
 def get_session_summary(session_df):
     total_climbs = len(session_df)
-    session_df['Grade'] = pd.Categorical(session_df['Grade'], categories=GRADE_ORDER, ordered=True)
-    hardest_climb = session_df['Grade'].min()
+    # MODIFIED: Use lowercase column name
+    session_df['grade'] = pd.Categorical(session_df['grade'], categories=GRADE_ORDER, ordered=True)
+    hardest_climb = session_df['grade'].min()
     return {"total_climbs": total_climbs, "hardest_climb": hardest_climb}
