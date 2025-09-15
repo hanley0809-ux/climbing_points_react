@@ -23,8 +23,17 @@ import backend_utils
 # --- App Initialization & Configuration ---
 
 app = Flask(__name__)
-# MODIFIED: More specific CORS configuration for better security and clarity.
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+
+# Define the list of websites that are allowed to make requests to this API
+origins = [
+    "http://localhost:3000",                 # For local development
+    "https://climbing-points.onrender.com",  # Your live frontend URL
+    "https://climbingpoints.com",            # Your future custom domain
+    "https://www.climbingpoints.com"         # Your custom domain with www
+]
+
+# Initialize CORS with the list of allowed origins
+CORS(app, resources={r"/api/*": {"origins": origins}})
 
 # Load secrets and initialize the Google Sheet connection once on startup.
 try:
