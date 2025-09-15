@@ -1,0 +1,240 @@
+/* --- Google Fonts & Global Styles --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Roboto:wght@400;700&display=swap');
+
+body {
+    background-color: #121212;
+    color: #E0E0E0;
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 15px;
+}
+
+.app-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Poppins', sans-serif;
+    color: #FFFFFF;
+    margin-top: 0;
+}
+
+/* --- Card Styles (From Streamlit) --- */
+.card {
+    background-color: #1E1E1E; /* Darker card for better contrast */
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    margin-bottom: 25px;
+}
+
+/* --- Start Session Form --- */
+.start-form {
+    max-width: 400px;
+    margin: 40px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.input-field {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #E0E0E0;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: 'Roboto', sans-serif;
+}
+
+select.input-field {
+    cursor: pointer;
+}
+
+/* --- Dashboard & Metrics --- */
+.metrics-container {
+    display: flex;
+    justify-content: space-around;
+    gap: 15px;
+    text-align: center;
+}
+
+.metric-card {
+    background-color: #2B3A67;
+    padding: 15px;
+    border-radius: 10px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.metric-card h4 {
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #d1d1d1;
+    font-weight: 400;
+}
+
+.metric-card p {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+    color: #FFFFFF;
+}
+
+/* --- Grade Buttons (From Streamlit) --- */
+.grade-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.grade-button-wrapper button {
+    background-color: transparent;
+    border: 2px solid #666; /* Default border */
+    color: #ccc !important;
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    width: 100%;
+}
+
+.grade-button-wrapper button:hover {
+    background-color: #333;
+    transform: translateY(-2px);
+}
+
+/* Stonegoat Bouldering Colors */
+.grade-Red button { border-color: #d13d3d; color: #d13d3d !important; }
+.grade-Red:hover button { background-color: #d13d3d20; }
+.grade-Red-Orange button { border-color: #e36a38; color: #e36a38 !important; }
+.grade-Red-Orange:hover button { background-color: #e36a3820; }
+.grade-Orange button { border-color: #f59333; color: #f59333 !important; }
+.grade-Orange:hover button { background-color: #f5933320; }
+.grade-Orange-Yellow button { border-color: #f5c133; color: #f5c133 !important; }
+.grade-Orange-Yellow:hover button { background-color: #f5c13320; }
+.grade-Yellow button { border-color: #f5e433; color: #f5e433 !important; }
+.grade-Yellow:hover button { background-color: #f5e43320; }
+.grade-Yellow-Green button { border-color: #b8d14c; color: #b8d14c !important; }
+.grade-Yellow-Green:hover button { background-color: #b8d14c20; }
+.grade-Green button { border-color: #7bbf62; color: #7bbf62 !important; }
+.grade-Green:hover button { background-color: #7bbf6220; }
+.grade-Green-Blue button { border-color: #5ea8a0; color: #5ea8a0 !important; }
+.grade-Green-Blue:hover button { background-color: #5ea8a020; }
+.grade-Blue button { border-color: #436ac2; color: #436ac2 !important; }
+.grade-Blue:hover button { background-color: #436ac220; }
+
+/* --- Session Lists --- */
+.sessions-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.climb-list, .past-sessions-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.climb-list li, .past-sessions-list li {
+    background-color: #2a2a2a;
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+}
+
+.placeholder-text {
+    color: #888;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Past Sessions Accordion */
+.past-sessions-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+.session-details {
+    margin-bottom: 10px;
+}
+.session-details summary {
+    cursor: pointer;
+    background-color: #2B3A67;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+.session-details[open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.session-details ul {
+    padding: 10px;
+    background-color: #222;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+/* --- Buttons --- */
+.btn-primary, .btn-finish {
+    background-color: #4A90E2;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+}
+.btn-primary:hover, .btn-finish:hover {
+    background-color: #357ABD;
+}
+.btn-primary:disabled, .btn-finish:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.btn-finish {
+    width: 100%;
+    padding: 15px;
+    background-color: #5cb85c;
+}
+.btn-finish:hover {
+    background-color: #4cae4c;
+}
+
+.btn-delete {
+    background-color: transparent;
+    border: none;
+    color: #ff5c5c;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 5px;
+    line-height: 1;
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .sessions-container {
+        grid-template-columns: 1fr;
+    }
+    .metrics-container {
+        flex-direction: column;
+    }
+}
