@@ -52,16 +52,18 @@ def get_all_climbs():
         df['date'] = pd.to_datetime(df['date'], errors='coerce')
     return df
 
+# In backend_utils.py
+
 def save_new_session(climbs_to_save, user_name, session_name=None):
     """Saves a new session's climbs to the PostgreSQL database."""
-    session_date = datetime.now().strftime("%Y-%m-%d")
-    final_session_name = session_name if session_name else f"Session from {session_date}"
+    # ... (session_date and final_session_name logic stays the same)
 
+    # MODIFIED: Update SQL query to include new columns
     insert_query = text('''
-        INSERT INTO climbs (discipline, grade, timestamp, session, date, gym, name)
-        VALUES (:discipline, :grade, :timestamp, :session, :date, :gym, :name)
+        INSERT INTO climbs (discipline, grade, timestamp, session, date, gym, name, ascent_type)
+        VALUES (:discipline, :grade, :timestamp, :session, :date, :gym, :name, :ascent_type)
     ''')
-    
+
     with engine.connect() as connection:
         for climb in climbs_to_save:
             connection.execute(insert_query, {
@@ -71,28 +73,44 @@ def save_new_session(climbs_to_save, user_name, session_name=None):
                 "session": final_session_name,
                 "date": session_date,
                 "gym": climb.get("Gym", ""),
-                "name": user_name
+                "name": user_name,
+                # MODIFIED: Add the new ascent_type field
+                "ascent_type": climb.get("AscentType")
             })
         connection.commit()
 
+# In backend/backend_utils.py
+
 def get_dashboard_stats(df):
-    # MODIFIED: Use lowercase column names to match the DataFrame
     if df.empty or 'session' not in df.columns:
-        return {"total_sessions": 0, "hardest_boulder": "N/A", "hardest_sport": "N/A"}
+        return {"total_sessions": 0, "hardest_boulder": "N/A", "hardest_sport": "N/A", "hardest_send": "N/A"}
 
     total_sessions = df['session'].nunique()
 
     def find_hardest(discipline):
-        # MODIFIED: Use lowercase column names
-        discipline_df = df[df['discipline'] == discipline]
+        # Filter for successful sends or flashes
+        sends_df = df[df['ascent_type'].isin(['Send', 'Flash'])]
+        discipline_df = sends_df[sends_df['discipline'] == discipline]
         if discipline_df.empty: return "N/A"
         discipline_df['grade'] = pd.Categorical(discipline_df['grade'], categories=GRADE_ORDER, ordered=True)
         return discipline_df['grade'].min()
 
     hardest_boulder = find_hardest("Bouldering")
     hardest_sport = find_hardest("Sport Climbing")
+    
+    # MODIFIED: Calculate the overall hardest send
+    all_sends_df = df[df['ascent_type'].isin(['Send', 'Flash'])]
+    hardest_send = "N/A"
+    if not all_sends_df.empty:
+        all_sends_df['grade'] = pd.Categorical(all_sends_df['grade'], categories=GRADE_ORDER, ordered=True)
+        hardest_send = all_sends_df['grade'].min()
 
-    return {"total_sessions": total_sessions, "hardest_boulder": hardest_boulder, "hardest_sport": hardest_sport}
+    return {
+        "total_sessions": total_sessions,
+        "hardest_boulder": hardest_boulder,
+        "hardest_sport": hardest_sport,
+        "hardest_send": hardest_send
+    }
 
 def get_session_summary(session_df):
     total_climbs = len(session_df)

@@ -65,6 +65,49 @@ def get_sessions(user_name):
     
     return jsonify(sessions_list)
 
+# In backend/app.py
+
+@app.route("/api/grade_pyramid/<user_name>", methods=["GET"])
+def get_grade_pyramid(user_name):
+    """Returns data formatted for the grade pyramid chart."""
+    all_climbs_df = backend_utils.get_all_climbs()
+    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
+
+    # Filter for successful sends or flashes
+    sends_df = user_df[user_df['ascent_type'].isin(['Send', 'Flash'])]
+
+    if sends_df.empty:
+        return jsonify({})
+
+    # Count climbs per grade
+    pyramid_data = sends_df.groupby('grade').size().to_dict()
+    return jsonify(pyramid_data)
+
+@app.route("/api/profile/<user_name>", methods=["GET"])
+def get_profile_data(user_name):
+    """Returns aggregated data for the user's profile page."""
+    all_climbs_df = backend_utils.get_all_climbs()
+    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
+
+    if user_df.empty:
+        return jsonify({"total_sessions": 0, "progress": [], "achievements": []})
+
+    # This is a simplified example; you can build more complex logic here
+    total_sessions = user_df['session'].nunique()
+
+    # For the progress chart (e.g., hardest climb per month)
+    # This requires more complex pandas logic, but this is a starting point
+    progress_data = user_df.groupby(pd.Grouper(key='date', freq='M'))['grade'].min().reset_index().to_dict('records')
+
+    # Logic to determine achievements would go here
+    achievements_data = [] # Placeholder
+
+    return jsonify({
+        "total_sessions": total_sessions,
+        "progress": progress_data,
+        "achievements": achievements_data
+    })
+
 
 @app.route("/api/session", methods=["POST"])
 def add_session():
