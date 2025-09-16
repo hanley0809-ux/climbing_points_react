@@ -1,92 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { useSession } from '../contexts/SessionContext';
+import { FiCheckCircle } from 'react-icons/fi'; // Icon for successful sends
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5001';
 
-const gradeColors = {
-  "V0": "#4A90E2", "V1": "#4A90E2", "V2": "#50E3C2", "V3": "#50E3C2",
-  "V4": "#7ED321", "V5": "#7ED321", "V6": "#F5A623", "V7": "#F5A623",
-  "V8": "#D0021B", "V9": "#D0021B",
-};
-
 function Logbook({ userName }) {
-    const [pyramidData, setPyramidData] = useState([]);
-    const [recentSessions, setRecentSessions] = useState([]);
-    const [stats, setStats] = useState({ hardest_send: "N/A" });
-    const { currentSessionClimbs, finishSession } = useSession();
+    const [recentClimbs, setRecentClimbs] = useState([]);
+    const [todayStats, setTodayStats] = useState({ totalClimbs: 0, hardest: 'N/A', duration: '0h 0m' });
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchSessions = async () => {
             try {
-                const [pyramidRes, sessionsRes, statsRes] = await Promise.all([
-                    fetch(`${API_BASE_URL}/api/grade_pyramid/${userName}`),
-                    fetch(`${API_BASE_URL}/api/sessions/${userName}`),
-                    fetch(`${API_BASE_URL}/api/stats/${userName}`),
-                ]);
-                const pyramidJson = await pyramidRes.json();
-                const sessionsJson = await sessionsRes.json();
-                const statsJson = await statsRes.json();
+                const response = await fetch(`${API_BASE_URL}/api/sessions/${userName}`);
+                const sessions = await response.json();
                 
-                const gradeOrder = ["V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","V10"];
-                const formattedData = gradeOrder.map(grade => ({
-                    grade,
-                    count: pyramidJson[grade] || 0,
-                })).filter(item => item.count > 0);
+                // For simplicity, we'll just show the last 5 climbs as "Session Activity"
+                const allClimbs = sessions.flatMap(s => s.climbs).slice(0, 5);
+                setRecentClimbs(allClimbs);
 
-                setPyramidData(formattedData);
-                setRecentSessions(sessionsJson.slice(0, 3)); // Show latest 3
-                setStats(statsJson);
+                // Logic to calculate "Today's" stats can be added here
+                // This is a placeholder for now
+                setTodayStats({ totalClimbs: allClimbs.length, hardest: 'V5', duration: '1h 15m' });
+
             } catch (error) {
-                console.error("Failed to fetch logbook data:", error);
+                console.error("Failed to fetch session data:", error);
             }
         };
-        fetchData();
+        fetchSessions();
     }, [userName]);
 
     return (
         <div className="page-container">
-            <div className="card">
-                <h3 className="card-subtitle">Hardest Send</h3>
-                <p className="hardest-grade">{stats.hardest_send}</p>
-            </div>
+            <header className="page-header">
+                <h1>Logbook</h1>
+            </header>
             
-            {currentSessionClimbs.length > 0 && (
-                <div className="card current-session-card">
-                    <h3>Current Session ({currentSessionClimbs.length} climbs)</h3>
-                    <ul className="current-climbs-list">
-                        {currentSessionClimbs.map(c => <li key={c.id}>{c.grade} ({c.ascentType})</li>)}
-                    </ul>
+            <div className="card summary-card">
+                <div className="date-header">
+                    <h3>Today, {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</h3>
+                    <p>The Newstone Gym</p>
                 </div>
-            )}
-
-            <div className="card">
-                <h2>Grade Pyramid</h2>
-                <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={pyramidData} layout="vertical" margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                        <XAxis type="number" hide />
-                        <YAxis dataKey="grade" type="category" axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: '#333'}} contentStyle={{backgroundColor: '#222', border: 'none'}} />
-                        <Bar dataKey="count" barSize={20}>
-                            {pyramidData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={gradeColors[entry.grade] || '#8884d8'} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+                <div className="stats-grid">
+                    <div className="stat-item">
+                        <span className="stat-value">{todayStats.totalClimbs}</span>
+                        <span className="stat-label">Total Climbs</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-value">{todayStats.hardest}</span>
+                        <span className="stat-label">Hardest</span>
+                    </div>
+                    <div className="stat-item">
+                        <span className="stat-value">{todayStats.duration}</span>
+                        <span className="stat-label">Duration</span>
+                    </div>
+                </div>
+                <Link to="/add-climb" className="btn-primary">+ Log New Session</Link>
             </div>
 
-            <div className="card">
-                <h2>Recent Sessions</h2>
-                <div className="sessions-grid">
-                    {recentSessions.map(session => (
-                        <div key={session.session_name} className="session-card">
-                            <h4>{new Date(session.session_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</h4>
-                            <p>{session.climbs.length} climbs</p>
+            <div className="activity-feed">
+                <h2>Session Activity</h2>
+                {recentClimbs.length > 0 ? (
+                    recentClimbs.map((climb, index) => (
+                        <div key={index} className="activity-item">
+                            <FiCheckCircle className="activity-icon" />
+                            <div className="activity-info">
+                                <p className="activity-title">{`Route ${index + 1} / ${climb.grade} / ${climb.ascent_type}`}</p>
+                                <p className="activity-subtitle">Ascent</p>
+                            </div>
                         </div>
-                    ))}
-                </div>
+                    ))
+                ) : (
+                    <p>No recent activity.</p>
+                )}
             </div>
         </div>
     );

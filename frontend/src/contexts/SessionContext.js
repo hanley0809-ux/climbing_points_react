@@ -1,10 +1,12 @@
 import React, { createContext, useState, useContext } from 'react';
 
 const SessionContext = createContext();
+
 export const useSession = () => useContext(SessionContext);
 
 export const SessionProvider = ({ children, userName, discipline, gym }) => {
     const [currentSessionClimbs, setCurrentSessionClimbs] = useState([]);
+    const [isSaving, setIsSaving] = useState(false); // ADDED: Loading state for saving
     const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5001';
 
     const logClimb = (climbData) => {
@@ -21,16 +23,24 @@ export const SessionProvider = ({ children, userName, discipline, gym }) => {
     const deleteClimb = (climbId) => {
         setCurrentSessionClimbs(prevClimbs => prevClimbs.filter(climb => climb.id !== climbId));
     };
-
-    const finishSession = async () => {
+    
+    // MODIFIED: Function now accepts a custom name and a success callback
+    const finishSession = async (customSessionName, onSuccessCallback) => {
         if (currentSessionClimbs.length === 0) {
             setCurrentSessionClimbs([]);
-            return { success: true };
+            if (onSuccessCallback) onSuccessCallback();
+            return;
         }
-        const sessionName = discipline === "Bouldering" ? `${gym} - ${discipline}` : discipline;
+
+        setIsSaving(true); // Set loading to true
+
+        // Use custom name if provided, otherwise generate a default
+        const defaultSessionName = discipline === "Bouldering" ? `${gym} - ${discipline}` : discipline;
+        const finalSessionName = customSessionName || defaultSessionName;
+
         const payload = {
             userName: userName,
-            sessionName: sessionName,
+            sessionName: finalSessionName,
             climbs: currentSessionClimbs.map(climb => ({
                 Discipline: climb.discipline,
                 Grade: climb.grade,
@@ -51,13 +61,17 @@ export const SessionProvider = ({ children, userName, discipline, gym }) => {
                 throw new Error('Failed to save session to the server.');
             }
             setCurrentSessionClimbs([]);
-            return { success: true, message: "Session saved successfully! 🎉" };
+            alert("Session saved successfully! 🎉");
+            if (onSuccessCallback) onSuccessCallback(); // Call success callback
         } catch (error) {
             console.error("Error finishing session:", error);
-            return { success: false, message: `Could not save session: ${error.message}.` };
+            alert(`Could not save session: ${error.message}.`);
+        } finally {
+            setIsSaving(false); // Always set loading to false when done
         }
     };
 
-    const value = { currentSessionClimbs, logClimb, deleteClimb, finishSession };
+    // MODIFIED: Expose isSaving in the context value
+    const value = { currentSessionClimbs, logClimb, deleteClimb, finishSession, isSaving };
     return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };
