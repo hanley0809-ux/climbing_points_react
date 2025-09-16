@@ -1,86 +1,53 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useState } from 'react';
 import './App.css';
-import { SessionProvider } from './contexts/SessionContext';
-import BottomNav from './components/BottomNav';
-import Logbook from './pages/Logbook';
-import Profile from './pages/Profile';
-import AddClimb from './pages/AddClimb';
+import Dashboard from './pages/Dashboard';
+import ActiveSession from './pages/ActiveSession';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5001';
+function App() {
+    // A user name is needed for API calls. For a real multi-user app, you'd have a login system.
+    // For now, we'll use a hardcoded name.
+    const userName = "Mark"; // Or "Priya", "Chloe"
 
-function StartForm({ onSessionStart }) {
-    const [userName, setUserName] = useState('');
-    const [discipline, setDiscipline] = useState('Bouldering');
-    const [gym, setGym] = useState('Stonegoat');
-    const [isLoading, setIsLoading] = useState(false);
+    const [activeSession, setActiveSession] = useState(null);
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5001';
 
-    useEffect(() => {
-        const storedName = localStorage.getItem('climberName');
-        if (storedName) setUserName(storedName);
-    }, []);
-
-    const handleStart = async () => {
-        if (!userName.trim()) return alert("Please enter your name.");
-        localStorage.setItem('climberName', userName.trim());
-        setIsLoading(true);
+    const handleStartSession = async (location) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/api/stats/${userName}`);
-            if (!response.ok) throw new Error('Failed to connect to the server. Make sure the API is running.');
-            onSessionStart({ userName, discipline, gym });
+            const response = await fetch(`${API_BASE_URL}/api/session/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userName, location }),
+            });
+            const data = await response.json();
+            setActiveSession({ id: data.session_id, location, startTime: data.start_time, climbs: [] });
         } catch (error) {
-            alert(`Could not start session: ${error.message}`);
-        } finally {
-            setIsLoading(false);
+            console.error("Could not start session:", error);
+        }
+    };
+
+    const handleLogClimb = (climb) => {
+        setActiveSession(prev => ({ ...prev, climbs: [climb, ...prev.climbs] }));
+    };
+
+    const handleEndSession = async () => {
+        try {
+            await fetch(`${API_BASE_URL}/api/session/end`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: activeSession.id }),
+            });
+            setActiveSession(null);
+        } catch (error) {
+            console.error("Could not end session:", error);
         }
     };
 
     return (
-        <div className="card start-form">
-            <h2>Start a New Session</h2>
-            <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Enter Your Name" className="input-field" />
-            <select value={discipline} onChange={(e) => setDiscipline(e.target.value)} className="input-field">
-                <option value="Bouldering">Bouldering</option>
-                <option value="Sport Climbing">Sport Climbing</option>
-            </select>
-            {discipline === 'Bouldering' && (
-                <select value={gym} onChange={(e) => setGym(e.target.value)} className="input-field">
-                    <option value="Stonegoat">Stonegoat</option>
-                    <option value="Balance">Balance</option>
-                </select>
-            )}
-            <button onClick={handleStart} disabled={isLoading || !userName.trim()} className="btn-primary btn-send-it">
-                {isLoading ? 'Warming up...' : "Let's send it!"}
-            </button>
-        </div>
-    );
-}
-
-function App() {
-    const [sessionData, setSessionData] = useState(null);
-    const handleSessionStart = (data) => setSessionData(data);
-    const handleSessionEnd = () => setSessionData(null);
-
-    return (
         <div className="container">
-            {!sessionData ? (
-                <>
-                    <header className="app-header"><h1>🧗‍♂️ Climbing Points</h1></header>
-                    <main><StartForm onSessionStart={handleSessionStart} /></main>
-                </>
+            {activeSession ? (
+                <ActiveSession session={activeSession} onLogClimb={handleLogClimb} onEndSession={handleEndSession} />
             ) : (
-                <SessionProvider userName={sessionData.userName} discipline={sessionData.discipline} gym={sessionData.gym}>
-                    <div className="app-container">
-                        <main className="main-content">
-                            <Routes>
-                                <Route path="/" element={<Logbook userName={sessionData.userName} />} />
-                                <Route path="/profile" element={<Profile userName={sessionData.userName} />} />
-                                <Route path="/add-climb" element={<AddClimb />} />
-                            </Routes>
-                        </main>
-                        <BottomNav onSessionEnd={handleSessionEnd} />
-                    </div>
-                </SessionProvider>
+                <Dashboard userName={userName} onStartSession={handleStartSession} />
             )}
         </div>
     );

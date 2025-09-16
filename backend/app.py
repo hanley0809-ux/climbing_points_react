@@ -1,134 +1,128 @@
 # backend/app.py
-
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import pandas as pd
-
-import backend_utils
-
-# --- App Initialization & Configuration ---
+from datetime import datetime, timezone, timedelta
+from sqlalchemy import text
+import backend_utils # For engine and init_db
 
 app = Flask(__name__)
-
-origins = [
-    "http://localhost:3000",
-    "https://climbing-points.onrender.com",
-    "https://climbingpoints.com",
-    "https://www.climbingpoints.com"
-]
-CORS(app, resources={r"/api/*": {"origins": origins}})
-
+# ... (your CORS setup from before)
 backend_utils.init_db()
+engine = backend_utils.engine
 
-# --- API Endpoints ---
+# This GRADE_ORDER list is crucial for sorting climbs by difficulty
+GRADE_ORDER = ["V0","V1","V2","V3","V4","V5","V6","V7","V8","V9","V10"] # Simplified for example
 
-@app.route("/api/stats/<user_name>", methods=["GET"])
-def get_stats(user_name):
-    all_climbs_df = backend_utils.get_all_climbs()
-    if all_climbs_df.empty:
-        return jsonify(backend_utils.get_dashboard_stats(pd.DataFrame()))
+@app.route("/api/dashboard/<user_name>", methods=["GET"])
+def get_dashboard_data(user_name):
+    with engine.connect() as connection:
+        # --- KPIs ---
+        total_sessions = connection.execute(text("SELECT COUNT(*) FROM sessions WHERE user_name = :name"), {"name": user_name}).scalar_one()
 
-    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
-    stats = backend_utils.get_dashboard_stats(user_df)
-    
-    return jsonify(stats)
+        # Hardest Send in last 30 days
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+        sends_30d_df = pd.read_sql_query(
+            text("""
+                SELECT c.grade FROM climbs c JOIN sessions s ON c.session_id = s.id
+                WHERE s.user_name = :name AND c.ascent_type IN ('Send', 'Flash') AND s.start_time >= :date
+            """),
+            connection,
+            params={"name": user_name, "date": thirty_days_ago}
+        )
+        hardest_send_30_days = "N/A"
+        if not sends_30d_df.empty:
+            sends_30d_df['grade'] = pd.Categorical(sends_30d_df['grade'], categories=GRADE_ORDER, ordered=True)
+            hardest_send_30_days = sends_30d_df['grade'].min()
 
+        # Current Project (hardest attempt)
+        attempts_df = pd.read_sql_query(
+            text("""
+                SELECT c.grade FROM climbs c JOIN sessions s ON c.session_id = s.id
+                WHERE s.user_name = :name AND c.ascent_type = 'Attempt'
+            """),
+            connection,
+            params={"name": user_name}
+        )
+        current_project = "N/A"
+        if not attempts_df.empty:
+            attempts_df['grade'] = pd.Categorical(attempts_df['grade'], categories=GRADE_ORDER, ordered=True)
+            current_project = attempts_df['grade'].min()
 
-@app.route("/api/sessions/<user_name>", methods=["GET"])
-def get_sessions(user_name):
-    all_climbs_df = backend_utils.get_all_climbs()
-    if all_climbs_df.empty:
-        return jsonify([])
-    
-    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
+        # --- Grade Pyramid ---
+        pyramid_df = pd.read_sql_query(
+            text("""
+                SELECT grade, COUNT(*) as count FROM climbs c JOIN sessions s ON c.session_id = s.id
+                WHERE s.user_name = :name AND c.ascent_type IN ('Send', 'Flash')
+                GROUP BY grade
+            """),
+            connection,
+            params={"name": user_name}
+        )
+        pyramid_data = pd.Series(pyramid_df.count.values, index=pyramid_df.grade).to_dict()
 
-    # MODIFIED: Use lowercase column names to match the DataFrame
-    if user_df.empty or 'session' not in user_df.columns:
-        return jsonify([])
-
-    df_sorted_by_date = user_df.sort_values(by='date', ascending=False)
-    grouped_by_session = df_sorted_by_date.groupby('session')
-    
-    sessions_list = []
-    for session_name, session_df in grouped_by_session:
-        session_date_val = session_df['date'].iloc[0]
-        session_date = session_date_val.strftime('%Y-%m-%d') if pd.notna(session_date_val) else None
-        
-        session_df_cleaned = session_df.astype(object).where(pd.notnull(session_df), None)
-        climbs_in_session = session_df_cleaned.to_dict('records')
-        
-        sessions_list.append({
-            "session_name": session_name,
-            "session_date": session_date,
-            "climbs": climbs_in_session
-        })
-    
-    return jsonify(sessions_list)
-
-# In backend/app.py
-
-@app.route("/api/grade_pyramid/<user_name>", methods=["GET"])
-def get_grade_pyramid(user_name):
-    """Returns data formatted for the grade pyramid chart."""
-    all_climbs_df = backend_utils.get_all_climbs()
-    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
-
-    # Filter for successful sends or flashes
-    sends_df = user_df[user_df['ascent_type'].isin(['Send', 'Flash'])]
-
-    if sends_df.empty:
-        return jsonify({})
-
-    # Count climbs per grade
-    pyramid_data = sends_df.groupby('grade').size().to_dict()
-    return jsonify(pyramid_data)
-
-@app.route("/api/profile/<user_name>", methods=["GET"])
-def get_profile_data(user_name):
-    """Returns aggregated data for the user's profile page."""
-    all_climbs_df = backend_utils.get_all_climbs()
-    user_df = all_climbs_df[all_climbs_df["name"] == user_name]
-
-    if user_df.empty:
-        return jsonify({"total_sessions": 0, "progress": [], "achievements": []})
-
-    # This is a simplified example; you can build more complex logic here
-    total_sessions = user_df['session'].nunique()
-
-    # For the progress chart (e.g., hardest climb per month)
-    # This requires more complex pandas logic, but this is a starting point
-    progress_data = user_df.groupby(pd.Grouper(key='date', freq='M'))['grade'].min().reset_index().to_dict('records')
-
-    # Logic to determine achievements would go here
-    achievements_data = [] # Placeholder
+        # --- Recent Activity ---
+        recent_sessions = connection.execute(text("""
+            SELECT id, location, start_time FROM sessions
+            WHERE user_name = :name ORDER BY start_time DESC LIMIT 3
+        """), {"name": user_name}).mappings().all()
 
     return jsonify({
+        "hardest_send_30_days": hardest_send_30_days,
         "total_sessions": total_sessions,
-        "progress": progress_data,
-        "achievements": achievements_data
+        "current_project": current_project,
+        "pyramid_data": pyramid_data,
+        "recent_sessions": [{"id": r.id, "location": r.location, "date": r.start_time.isoformat()} for r in recent_sessions]
     })
 
-
-@app.route("/api/session", methods=["POST"])
-def add_session():
+@app.route("/api/session/start", methods=["POST"])
+def start_session():
     data = request.get_json()
-    
-    climbs_to_save = data.get("climbs")
     user_name = data.get("userName")
-    session_name = data.get("sessionName")
+    location = data.get("location")
+    start_time = datetime.now(timezone.utc)
 
-    if not climbs_to_save or not user_name:
-        return jsonify({"status": "error", "message": "Missing 'climbs' or 'userName' in request body"}), 400
+    with engine.connect() as connection:
+        result = connection.execute(text("""
+            INSERT INTO sessions (user_name, location, start_time)
+            VALUES (:user_name, :location, :start_time)
+            RETURNING id
+        """), {
+            "user_name": user_name, "location": location, "start_time": start_time
+        })
+        session_id = result.scalar_one()
+        connection.commit()
 
-    try:
-        backend_utils.save_new_session(climbs_to_save, user_name, session_name)
-        return jsonify({"status": "success", "message": "Session saved successfully."}), 201
-    except Exception as e:
-        print(f"ERROR saving session: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"session_id": session_id, "start_time": start_time.isoformat()}), 201
 
+@app.route("/api/climb", methods=["POST"])
+def log_climb():
+    data = request.get_json()
+    with engine.connect() as connection:
+        connection.execute(text("""
+            INSERT INTO climbs (session_id, climbing_type, grade, ascent_type, notes, logged_at)
+            VALUES (:session_id, :climbing_type, :grade, :ascent_type, :notes, :logged_at)
+        """), {
+            "session_id": data.get("session_id"),
+            "climbing_type": data.get("climbing_type"),
+            "grade": data.get("grade"),
+            "ascent_type": data.get("ascent_type"),
+            "notes": data.get("notes"),
+            "logged_at": datetime.now(timezone.utc)
+        })
+        connection.commit()
+    return jsonify({"message": "Climb logged successfully"}), 201
 
-# --- Main Execution ---
+@app.route("/api/session/end", methods=["POST"])
+def end_session():
+    data = request.get_json()
+    session_id = data.get("session_id")
+    with engine.connect() as connection:
+        connection.execute(text("""
+            UPDATE sessions SET end_time = :end_time WHERE id = :session_id
+        """), {"end_time": datetime.now(timezone.utc), "session_id": session_id})
+        connection.commit()
+    return jsonify({"message": "Session ended successfully"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
